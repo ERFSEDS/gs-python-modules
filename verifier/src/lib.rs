@@ -13,6 +13,7 @@ create_exception!(verifier, VerifyException, PyException);
 fn verify(toml: String) -> PyResult<String> {
     let s =
         toml::from_str(toml.as_str()).map_err(|e| TomlParseException::new_err(format!("{}", e)))?;
+    Ok("".to_owned())
 }
 
 #[pymodule]
