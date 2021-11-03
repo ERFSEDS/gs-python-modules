@@ -203,6 +203,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "546c37ac5d9e56f55e73b677106873d9d9f5190605e41a856503623648488cae"
 
 [[package]]
+name = "nova-software-common"
+version = "0.1.0"
+source = "git+https://github.com/ERFSEDS/nova-software-common.git#3458abfec4305a2f15f310248277d0351cfce335"
+dependencies = [
+ "heapless",
+ "serde",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -519,6 +528,7 @@ name = "verifier"
 version = "0.1.0"
 dependencies = [
  "heapless",
+ "nova-software-common",
  "postcard",
  "pyo3",
  "serde",
