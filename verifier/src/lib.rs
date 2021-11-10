@@ -1,4 +1,5 @@
-use nova_software_common::ConfigFile;
+use nova_software_common as common;
+
 use postcard::take_from_bytes;
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
@@ -11,41 +12,42 @@ create_exception!(verifier, TomlParseException, PyException);
 create_exception!(verifier, VerifyException, PyException);
 
 #[derive(Deserialize)]
-struct TomlRoot {
+pub struct ConfigFile {
+    default_state: Option<String>,
     states: Vec<State>,
 }
 
 #[derive(Deserialize)]
 struct State {
     name: String,
-    transition: Vec<String>,
     checks: Vec<Check>,
     commands: Vec<Command>,
+    timeout: Option<common::Timeout>,
 }
 
 #[derive(Deserialize)]
 struct Check {
-    condition: String,
     name: String,
-    #[serde(rename = "type")]
-    check_type: String,
+    check: common::CheckType,
+    condition: common::CheckCondition,
     value: f32,
+    transition: Option<String>,
 }
 
 #[derive(Deserialize)]
 struct Command {
     object: String,
-    time: f32,
     value: f32,
+    delay: f32,
 }
 
-fn verify_inner(toml: &str) -> Result<String, Box<dyn Error>> {
-    let input: TomlRoot = toml::from_str(toml)?;
+fn verify_inner(toml: &str) -> Result<Vec<u8>, Box<dyn Error>> {
+    let input: ConfigFile = toml::from_str(toml)?;
     Err("Error".into())
 }
 
 #[pyfunction]
-fn verify(toml: String) -> PyResult<String> {
+fn verify(toml: String) -> PyResult<Vec<u8>> {
     let result = verify_inner(toml.as_str());
     Ok(result.map_err(|e| TomlParseException::new_err(format!("{}", e)))?)
 }
