@@ -205,7 +205,6 @@ checksum = "546c37ac5d9e56f55e73b677106873d9d9f5190605e41a856503623648488cae"
 [[package]]
 name = "nova-software-common"
 version = "0.1.0"
-source = "git+https://github.com/ERFSEDS/nova-software-common.git#6fb75b4d99c77478d8f723be1df58b9532764605"
 dependencies = [
  "heapless",
  "serde",
