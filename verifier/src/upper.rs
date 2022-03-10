@@ -5,6 +5,7 @@
 //! checks for valid toml. The returned [`ConfigFile`] may reference state or check names that don't
 //! exist, have negative timeouts, etc. This is the job of the low level verifier to check when it
 //! converts our [`ConfigFile`] to [`nova_software_common::ConfigFile`]
+use common::index;
 use common::CommandObject;
 use nova_software_common as common;
 
@@ -40,6 +41,7 @@ pub struct State {
 
     #[serde(default)]
     pub checks: Vec<Check>,
+
     #[serde(default)]
     pub commands: Vec<Command>,
 }
@@ -62,6 +64,10 @@ pub struct Check {
     /// The name of the state to transition to when when the check is tripped
     pub transition: Option<String>,
 
+    /// The name of the state to abort to when this check is trpped.
+    /// Muturallay exclusive with `transition`
+    pub abort: Option<String>,
+
     /// If set, this check will execute when the value of `self.check` > the inner value
     /// Only available for `altitude` checks
     pub greater_than: Option<f32>,
@@ -76,6 +82,9 @@ pub struct Check {
     /// Checks if a boolean flag is set or unset
     /// The pyro values are supported
     /// `flag = "set"` or `flag = "unset"`
+    ///
+    /// If this flag is missing and `check` is set to a pyro value, then this value will default to
+    /// checking for "set"
     pub flag: Option<String>,
 }
 
@@ -133,10 +142,10 @@ impl Serialize for TomlBool {
     }
 }
 
-impl TryInto<common::Command> for &Command {
+impl TryInto<index::Command> for &Command {
     type Error = crate::Error;
 
-    fn try_into(self) -> Result<common::Command, Self::Error> {
+    fn try_into(self) -> Result<index::Command, Self::Error> {
         let mut count = 0;
         if self.pyro1.is_some() {
             count += 1;
@@ -179,17 +188,17 @@ impl TryInto<common::Command> for &Command {
                 unreachable!()
             }
         };
-        Ok(common::Command {
+        Ok(index::Command {
             object,
             delay: common::Seconds(self.delay.unwrap_or(0.0)),
         })
     }
 }
 
-impl TryInto<common::Command> for Command {
+impl TryInto<index::Command> for Command {
     type Error = crate::Error;
 
-    fn try_into(self) -> Result<common::Command, Self::Error> {
+    fn try_into(self) -> Result<index::Command, Self::Error> {
         (&self).try_into()
     }
 }
@@ -236,6 +245,7 @@ checks = []
                         upper_bound: None,
                         flag: None,
                         lower_bound: None,
+                        abort: None,
                     }],
                     commands: vec![],
                 }],
@@ -300,8 +310,11 @@ greater_than = 100.0
         use nova_software_common as common;
         #[test]
         fn a() {
-            let expected =
-                common::Command::new(common::CommandObject::Pyro1(true), common::Seconds(0.0));
+            let expected = common::index::Command::new(
+                common::CommandObject::Pyro1(true),
+                common::Seconds(0.0),
+            );
+
             let initial = Command {
                 pyro1: Some(TomlBool(true)),
                 pyro2: None,
