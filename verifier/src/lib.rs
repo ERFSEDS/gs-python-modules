@@ -1,8 +1,8 @@
 //! There must be at least one state that doesn't transition to so that we can serialize and
 //! deserialize states. This prevents an infinite graph situation
 
-pub mod upper;
 pub mod lower;
+pub mod upper;
 
 use pyo3::create_exception;
 use pyo3::exceptions::PyException;
@@ -12,6 +12,24 @@ use pyo3::{iter::IterNextOutput, prelude::*, PyIterProtocol};
 create_exception!(verifier, TomlParseException, PyException);
 create_exception!(verifier, VerifyException, PyException);
 
+#[derive(Debug)]
+pub enum CommandError {
+    NoValues,
+    TooManyValues(usize),
+}
+
+#[derive(Debug)]
+pub enum StateCountError {
+    NoStates,
+    TooManyStates(usize),
+}
+
+#[derive(Debug)]
+pub enum CheckConditionError {
+    NoCondition,
+    TooManyConditions(usize),
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error("toml parse error {0}")]
@@ -19,6 +37,21 @@ pub enum Error {
 
     #[error("postcard error {0}")]
     Postcard(#[from] postcard::Error),
+
+    #[error("state {0} not found")]
+    StateNotFound(String),
+
+    #[error("wrong number of states: {0:?}")]
+    StateCount(StateCountError),
+
+    #[error("command has wrong number of arguments: {0:?}")]
+    Command(CommandError),
+
+    #[error("check condition wrong: {0:?}")]
+    CheckConditionError(CheckConditionError),
+
+    #[error("no states declared\nconfig files require at least one state")]
+    NoStates,
 }
 
 fn verify_inner(toml: &str) -> Result<Vec<u8>, Error> {

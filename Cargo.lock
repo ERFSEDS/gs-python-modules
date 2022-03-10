@@ -12,6 +12,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "alloc-traits"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b2d54853319fd101b8dd81de382bcbf3e03410a64d8928bbee85a3e7dcde483"
+
+[[package]]
 name = "atomic-polyfill"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -206,6 +212,7 @@ checksum = "546c37ac5d9e56f55e73b677106873d9d9f5190605e41a856503623648488cae"
 name = "nova-software-common"
 version = "0.1.0"
 dependencies = [
+ "alloc-traits",
  "heapless",
  "serde",
 ]
