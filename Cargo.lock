@@ -220,6 +220,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "nova-verifier"
+version = "0.1.0"
+source = "git+https://github.com/ERFSEDS/nova-verifier.git#3645fc257f3da8436fcd4929c2ccbdb3b4863e97"
+dependencies = [
+ "heapless",
+ "nova-software-common",
+ "postcard",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -555,14 +569,8 @@ checksum = "77439c1b53d2303b20d9459b1ade71a83c716e3f9c34f3228c00e6f185d6c002"
 name = "verifier"
 version = "0.1.0"
 dependencies = [
- "heapless",
- "nova-software-common",
- "postcard",
+ "nova-verifier",
  "pyo3",
- "serde",
- "serde_json",
- "thiserror",
- "toml",
 ]
 
 [[package]]
