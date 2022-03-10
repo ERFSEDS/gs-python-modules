@@ -60,37 +60,17 @@ pub fn verify(mid: upper::ConfigFile) -> Result<ConfigFile, Error> {
         |name| temp.get_index(&name),
     )?;
 
-    /*
-    let mut dst_commands: Vec<Command, { common::MAX_COMMANDS }> = Vec::new();
-    let mut dst_checks: Vec<common::Check, { common::MAX_CHECKS }> = Vec::new();
     for (src_state, dst_state) in mid.states.iter().zip(states.iter_mut()) {
         for src_check in &src_state.checks {
-            // Convert command to lower type
-            let dst_check: common::Check = convert_check(src_check, temp);
-
-            let index: u8 = dst_checks.len().try_into().unwrap();
-            // SAFETY: `index` is the index of the to-be-pushed check therefore it is in range
-            let index = unsafe { CheckIndex::new_unchecked(index) };
-
-            // Push command and its index
-            dst_checks.push(dst_check).unwrap();
-            dst_state.checks.push(index).unwrap();
+            let check: index::Check = convert_check(src_check, &temp)?;
+            dst_state.checks.push(check).unwrap();
         }
 
         for src_command in &src_state.commands {
-            // Convert command to lower type
-            let dst_command: common::Command = src_command.try_into().unwrap();
-
-            let index: u8 = dst_commands.len().try_into().unwrap();
-            // SAFETY: `index` is the index of the to-be-pushed command therefore it is in range
-            let index = unsafe { CommandIndex::new_unchecked(index) };
-
-            // Push command and its index
-            dst_commands.push(dst_command).unwrap();
-            dst_state.commands.push(index).unwrap();
+            let command: index::Command = src_command.try_into().unwrap();
+            dst_state.commands.push(command).unwrap();
         }
     }
-    */
 
     Ok(ConfigFile {
         default_state,
@@ -98,12 +78,7 @@ pub fn verify(mid: upper::ConfigFile) -> Result<ConfigFile, Error> {
     })
 }
 
-// greater_than: Option<f32>,
-// upper_bound: Option<f32>,
-// lower_bound: Option<f32>,
-// flag: Option<String>,
-
-fn convert_check(check: &upper::Check, temp: Temp<'_>) -> Result<Check, Error> {
+fn convert_check(check: &upper::Check, temp: &Temp<'_>) -> Result<Check, Error> {
     if check.upper_bound.is_some() && check.lower_bound.is_none()
         || check.upper_bound.is_none() && check.lower_bound.is_some()
     {
@@ -143,7 +118,7 @@ fn convert_check(check: &upper::Check, temp: Temp<'_>) -> Result<Check, Error> {
         "pyro1_continuity" => CheckKind::Pyro1Continuity,
         "pyro2_continuity" => CheckKind::Pyro2Continuity,
         "pyro3_continuity" => CheckKind::Pyro3Continuity,
-        other => panic!("Bad check {}", other), // TODO: Better error handeling
+        other => panic!("Bad check {}", other), // TODO: Better error handling
     };
 
     pub enum CheckCondition {
@@ -167,7 +142,7 @@ fn convert_check(check: &upper::Check, temp: Temp<'_>) -> Result<Check, Error> {
             match flag.as_str() {
                 "set" => CheckCondition::FlagEq(true),
                 "unset" => CheckCondition::FlagEq(false),
-                _ => panic!("Unknown flag: {}", flag), // TODO: Better error handeling
+                _ => panic!("Unknown flag: {}", flag), // TODO: Better error handling
             }
         } else {
             unreachable!()
@@ -223,7 +198,7 @@ fn convert_check(check: &upper::Check, temp: Temp<'_>) -> Result<Check, Error> {
         (Some(t), None) => Some(StateTransition::Transition(t)),
         (None, Some(a)) => Some(StateTransition::Abort(a)),
         (None, None) => None,
-        (Some(_), Some(_)) => panic!(),
+        (Some(_), Some(_)) => panic!("Cannot abort and transition in the same check!"), // TODO: fix
     };
 
     Ok(index::Check::new(data, transition))
@@ -231,12 +206,193 @@ fn convert_check(check: &upper::Check, temp: Temp<'_>) -> Result<Check, Error> {
 
 #[cfg(test)]
 mod tests {
-    use super::common;
+    use common::{index::StateIndex, CheckData, FloatCondition, PyroContinuityCondition};
+
+    use crate::{upper, CheckConditionError};
+
+    use super::{common, index};
 
     /// Used for format compatibility guarantees. Call with real encoded config files once we have
     /// a stable version to maintain
     fn assert_config_eq(bytes: Vec<u8>, config: common::index::ConfigFile) {
         let decoded: common::index::ConfigFile = postcard::from_bytes(bytes.as_slice()).unwrap();
         assert_eq!(decoded, config);
+    }
+
+    #[test]
+    fn basic1() {
+        let upper = upper::ConfigFile {
+            default_state: Some("PowerOn".to_owned()),
+            states: vec![upper::State {
+                name: "PowerOn".to_owned(),
+                timeout: None,
+                checks: vec![upper::Check {
+                    name: "Takeoff".to_owned(),
+                    check: "altitude".to_owned(),
+                    greater_than: Some(100.0),
+                    transition: None,
+                    upper_bound: None,
+                    flag: None,
+                    lower_bound: None,
+                    abort: None,
+                }],
+                commands: vec![],
+            }],
+        };
+        use heapless::Vec;
+
+        let expected = index::ConfigFile {
+            default_state: unsafe { StateIndex::new_unchecked(0) },
+            states: [index::State {
+                timeout: None,
+                checks: [index::Check::new(
+                    CheckData::Altitude(FloatCondition::GreaterThan(100.0)),
+                    None,
+                )]
+                .into_iter()
+                .collect(),
+                commands: Vec::new(),
+            }]
+            .into_iter()
+            .collect(),
+        };
+
+        let real = super::verify(upper).unwrap();
+        assert_eq!(expected, real);
+    }
+
+    #[test]
+    fn basic2() {
+        let upper = upper::ConfigFile {
+            default_state: None,
+            states: vec![
+                upper::State {
+                    name: "Ground".to_owned(),
+                    timeout: None,
+                    checks: vec![upper::Check {
+                        name: "Takeoff".to_owned(),
+                        check: "altitude".to_owned(),
+                        greater_than: Some(100.0),
+                        transition: None,
+                        upper_bound: None,
+                        flag: None,
+                        lower_bound: None,
+                        abort: None,
+                    }],
+                    commands: vec![],
+                },
+                upper::State {
+                    name: "Launch".to_owned(),
+                    timeout: None,
+                    checks: vec![upper::Check {
+                        name: "Pyro1Cont".to_owned(),
+                        check: "pyro1_continuity".to_owned(),
+                        greater_than: None,
+                        transition: None,
+                        upper_bound: None,
+                        flag: Some("set".to_owned()),
+                        lower_bound: None,
+                        abort: None,
+                    }],
+                    commands: vec![],
+                },
+            ],
+        };
+        use heapless::Vec;
+
+        let expected = index::ConfigFile {
+            default_state: unsafe { StateIndex::new_unchecked(0) },
+            states: [
+                index::State {
+                    timeout: None,
+                    checks: [index::Check::new(
+                        CheckData::Altitude(FloatCondition::GreaterThan(100.0)),
+                        None,
+                    )]
+                    .into_iter()
+                    .collect(),
+                    commands: Vec::new(),
+                },
+                index::State {
+                    timeout: None,
+                    checks: [index::Check::new(
+                        CheckData::Pyro1Continuity(PyroContinuityCondition(true)),
+                        None,
+                    )]
+                    .into_iter()
+                    .collect(),
+                    commands: Vec::new(),
+                },
+            ]
+            .into_iter()
+            .collect(),
+        };
+
+        let real = super::verify(upper).unwrap();
+        assert_eq!(expected, real);
+    }
+
+    fn check_error(err: Result<index::ConfigFile, crate::Error>, expected_err: crate::Error) {
+        match err {
+            Ok(c) => {
+                panic!(
+                    "Low level verify should have failed with: {:?}, decoded to {:?}",
+                    expected_err, c
+                );
+            }
+            Err(e) => {
+                assert_eq!(e, expected_err);
+            }
+        }
+    }
+
+    #[test]
+    fn error_unknown_state() {
+        let bad_name = "I do not exist!".to_owned();
+        let upper = upper::ConfigFile {
+            default_state: Some(bad_name.clone()),
+            states: vec![upper::State {
+                name: "PowerOn".to_owned(),
+                timeout: None,
+                checks: vec![upper::Check {
+                    name: "Takeoff".to_owned(),
+                    check: "altitude".to_owned(),
+                    greater_than: Some(100.0),
+                    transition: None,
+                    upper_bound: None,
+                    flag: None,
+                    lower_bound: None,
+                    abort: None,
+                }],
+                commands: vec![],
+            }],
+        };
+        check_error(super::verify(upper), crate::Error::StateNotFound(bad_name));
+    }
+
+    #[test]
+    fn error_mutiple_subchecks() {
+        let upper = upper::ConfigFile {
+            default_state: None,
+            states: vec![upper::State {
+                name: "PowerOn".to_owned(),
+                timeout: None,
+                checks: vec![upper::Check {
+                    name: "Check".to_owned(),
+                    check: "pyro1_continuity".to_owned(),
+                    greater_than: Some(100.0),
+                    transition: None,
+                    upper_bound: Some(0.0),
+                    flag: Some("set".to_owned()),
+                    lower_bound: Some(0.5),
+                    abort: None,
+                }],
+                commands: vec![],
+            }],
+        };
+        check_error(
+            super::verify(upper),
+            crate::Error::CheckConditionError(CheckConditionError::TooManyConditions(3)),
+        );
     }
 }

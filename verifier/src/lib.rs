@@ -12,25 +12,25 @@ use pyo3::{iter::IterNextOutput, prelude::*, PyIterProtocol};
 create_exception!(verifier, TomlParseException, PyException);
 create_exception!(verifier, VerifyException, PyException);
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum CommandError {
     NoValues,
     TooManyValues(usize),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum StateCountError {
     NoStates,
     TooManyStates(usize),
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum CheckConditionError {
     NoCondition,
     TooManyConditions(usize),
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq, Eq)]
 pub enum Error {
     #[error("toml parse error {0}")]
     Toml(#[from] toml::de::Error),
