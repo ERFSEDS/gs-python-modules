@@ -17,5 +17,5 @@ toml = "0.5"
 thiserror = "1.0.30"
 
 pyo3 = { version = "0.14", features = ["extension-module"] }
-#nova-software-common = { git = "https://github.com/ERFSEDS/nova-software-common.git" }
-nova-software-common = { path = "../../nova-software-common" }
+nova-software-common = { git = "https://github.com/ERFSEDS/nova-software-common.git", branch = "unsafe-is-fun" }
+#nova-software-common = { path = "../../nova-software-common" }
